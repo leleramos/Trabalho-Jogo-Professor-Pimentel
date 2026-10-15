@@ -5,7 +5,7 @@ function Nave(context, teclado, imagem, imgExplosao) {
    this.x = 0;
    this.y = 0;
    this.velocidade = 0;
-   this.spritesheet = new Spritesheet(context, imagem, 3, 2);
+   this.spritesheet = new Spritesheet(context, imagem, 1, 5);
    this.spritesheet.linha = 0;
    this.spritesheet.intervalo = 100;
    this.imgExplosao = imgExplosao;
@@ -21,14 +21,14 @@ Nave.prototype = {
          this.x -= incremento;
          
       if (this.teclado.pressionada(SETA_DIREITA) && 
-               this.x < this.context.canvas.width - 36)
+               this.x < this.context.canvas.width - 22)
          this.x += incremento;
          
       if (this.teclado.pressionada(SETA_ACIMA) && this.y > 0)
          this.y -= incremento;
          
       if (this.teclado.pressionada(SETA_ABAIXO) &&
-               this.y < this.context.canvas.height - 48)
+               this.y < this.context.canvas.height - 22)
          this.y += incremento;
    },
    desenhar: function() {
@@ -106,7 +106,7 @@ Nave.prototype = {
    },
    posicionar: function() {
       var canvas = this.context.canvas;
-      this.x = canvas.width / 2 - 18;  // 36 / 2
-      this.y = canvas.height - 48;
+      this.x = canvas.width / 2 - 11;  // 36 / 2
+      this.y = canvas.height - 22;
    }
 }
