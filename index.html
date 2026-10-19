@@ -1,11 +1,315 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html>
+   
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vanguarda Stelar</title>
+   <title>Vanguarda Estelar</title>
+   <script src="animacao.js"></script>
+   <script src="teclado.js"></script>
+   <script src="colisor.js"></script>
+   <script src="fundo.js"></script>
+   <script src="nave.js"></script>
+   <script src="ovni.js"></script>
+   <script src="tiro.js"></script>
+   <script src="spritesheet.js"></script>
+   <script src="explosao.js"></script>
+   <script src="painel.js"></script>
+   <script src="menu.js"></script>
+   <style>
+   html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: black;
+   }
+   canvas {
+      display: block;
+   }
+   </style>
 </head>
+
 <body>
-    
+   <canvas id="canvas_animacao"></canvas>
+   
+   <script>
+      // Canvas e Context
+      var canvas = document.getElementById('canvas_animacao');
+      var context = canvas.getContext('2d');
+      
+      // Canvas ocupa a janela inteira
+      function ajustarCanvas() {
+         canvas.width = window.innerWidth;
+         canvas.height = window.innerHeight;
+         
+         // Mantém o pixel art nítido ao ampliar
+         // (redimensionar o canvas reseta esta configuração)
+         context.imageSmoothingEnabled = false;
+         
+         // Se a nave ficou fora da tela, traz de volta
+         if (typeof nave !== 'undefined' && nave) {
+            nave.x = Math.min(nave.x, canvas.width - nave.largura);
+            nave.y = Math.min(nave.y, canvas.height - nave.altura);
+         }
+      }
+      ajustarCanvas();
+      window.addEventListener('resize', ajustarCanvas);
+      
+      // Variáveis principais
+      var imagens, animacao, teclado, colisor, nave, criadorInimigos;
+      var totalImagens = 0, carregadas = 0;
+      var musicaAcao;
+      
+      // ===== FUNDO =====
+      // Cenários disponíveis em img/fundos/:
+      //   '07_black_hole', '01_deep_blue_void', '04_toxic_green'
+      var CENARIO = '07_black_hole';
+      // Amplia o fundo conforme a altura da janela (cada imagem tem
+      // 360 px de altura), para o cenário não se repetir demais.
+      // Número inteiro mantém o pixel art nítido.
+      var ESCALA_FUNDO = Math.max(2, Math.round(window.innerHeight / 360));
+      
+      // Menu (carregando, tela inicial e Game Over)
+      var menu = new Menu(context);
+      menu.abrir('carregando');
+      
+      // Clicar na tela também inicia o jogo (quando o menu permite)
+      canvas.addEventListener('click', function() {
+         iniciarJogo();
+      });
+      
+      // Começa carregando as imagens e músicas
+      carregarImagens();
+      menu.imgNave = imagens.nave;
+      carregarMusicas();
+      
+      function carregarImagens() {
+         // Objeto contendo os nomes das imagens
+         imagens = {
+            espaco:     'fundos/' + CENARIO + '/layer1_far_stars.png', 
+            nebulosa:   'fundos/' + CENARIO + '/layer2_nebula.png', 
+            poeira:     'fundos/' + CENARIO + '/layer3_dust.png', 
+            celestial:  'fundos/' + CENARIO + '/layer4_celestial.png', 
+            estrelas:   'fundos/' + CENARIO + '/layer5_near_stars.png', 
+            nave:     'nave-pixel.png', 
+            ovni:     'inimigo-pixel.png',
+            explosao: 'explosao-pixel.png',
+            tiro:     'tiro-pixel.png'
+         };
+         
+         // Carregar todas
+         for (var i in imagens) {
+            var img = new Image();
+            img.src = 'img/' + imagens[i];
+            img.onload = carregando;
+            totalImagens++;
+            
+            // Substituir o nome pela imagem
+            imagens[i] = img;
+         }
+      }
+      
+      function carregando() {
+         carregadas++;
+         
+         if (carregadas == totalImagens) {
+            iniciarObjetos();
+            
+            // O menu passa a usar o fundo do jogo e o ENTER inicia a partida
+            menu.camadas = [espaco, nebulosa, poeira, celestial, estrelas];
+            teclado.disparou(ENTER, iniciarJogo);
+         }
+         
+         // A barra do menu acompanha este valor (0 a 1)
+         menu.alvo = carregadas / totalImagens;
+      }
+      
+      function iniciarObjetos() {
+         // Objetos principais
+         animacao = new Animacao(context);
+         teclado = new Teclado(document);
+         colisor = new Colisor();
+         espaco = new Fundo(context, imagens.espaco, ESCALA_FUNDO);
+         nebulosa = new Fundo(context, imagens.nebulosa, ESCALA_FUNDO);
+         poeira = new Fundo(context, imagens.poeira, ESCALA_FUNDO);
+         celestial = new Fundo(context, imagens.celestial, ESCALA_FUNDO);
+         estrelas = new Fundo(context, imagens.estrelas, ESCALA_FUNDO);
+         nave = new Nave(context, teclado, imagens.nave, 
+                         imagens.explosao, imagens.tiro);
+         painel = new Painel(context, nave);
+         
+         // Ligações entre objetos
+         // Do mais distante para o mais próximo
+         animacao.novoSprite(espaco);
+         animacao.novoSprite(nebulosa);
+         animacao.novoSprite(poeira);
+         animacao.novoSprite(celestial);
+         animacao.novoSprite(estrelas);
+         animacao.novoSprite(painel);
+         animacao.novoSprite(nave);
+         
+         colisor.novoSprite(nave);
+         animacao.novoProcessamento(colisor);
+         
+         configuracoesIniciais();
+      }
+      
+      function configuracoesIniciais() {
+         // Fundos
+         // (camadas mais distantes rolam mais devagar: efeito parallax)
+         espaco.velocidade = 10;
+         nebulosa.velocidade = 30;
+         poeira.velocidade = 60;
+         celestial.velocidade = 90;
+         estrelas.velocidade = 160;
+         
+         // Nave
+         nave.posicionar();
+         nave.velocidade = 400;
+         
+         // Inimigos
+         criacaoInimigos();
+         
+         // Game Over
+         nave.acabaramVidas = function() {
+            animacao.desligar();
+            gameOver();
+         }
+         
+         // Pontuação
+         colisor.aoColidir = function(o1, o2) {
+            // Tiro com Ovni
+            if ( (o1 instanceof Tiro && o2 instanceof Ovni) ||
+                 (o1 instanceof Ovni && o2 instanceof Tiro) )
+               painel.pontuacao += 10;
+         }
+      }
+      
+      function criacaoInimigos() {
+         criadorInimigos = {
+            ultimoOvni: new Date().getTime(),
+            
+            processar: function() {
+               var agora = new Date().getTime();
+               var decorrido = agora - this.ultimoOvni;
+               
+               if (decorrido > 1000) {
+                  novoOvni();
+                  this.ultimoOvni = agora;
+               }
+            }
+         };
+         
+         animacao.novoProcessamento(criadorInimigos);
+      }
+      
+      function novoOvni() {
+         var imgOvni = imagens.ovni;
+         var ovni = new Ovni(context, imgOvni, imagens.explosao);
+
+         // Mínimo: 500; máximo: 1000
+         ovni.velocidade = 
+            Math.floor( 500 + Math.random() * (1000 - 500 + 1) );
+         
+         // Mínimo: 0; máximo: largura do canvas - largura do ovni   
+         ovni.x = 
+            Math.floor(Math.random() * 
+                       (canvas.width - ovni.largura + 1) );
+                  
+         // Descontar a altura
+         ovni.y = -ovni.altura;
+         
+         animacao.novoSprite(ovni);
+         colisor.novoSprite(ovni);
+      }
+      
+      function pausarJogo() {
+         if (animacao.ligado) {
+            animacao.desligar();
+            ativarTiro(false);
+            context.save();
+            context.fillStyle = 'white';
+            context.strokeStyle = 'black';
+            context.font = '50px sans-serif';
+            context.textAlign = 'center';
+            context.fillText("Pausado", canvas.width / 2, canvas.height / 2);
+            context.strokeText("Pausado", canvas.width / 2, canvas.height / 2);
+            context.restore();
+         }
+         else {
+            criadorInimigos.ultimoOvni = new Date().getTime();
+            animacao.ligar();
+            ativarTiro(true);
+         }
+      }
+      
+      function ativarTiro(ativar) {
+         if (ativar) {
+            teclado.disparou(ESPACO, function() {
+               nave.atirar();
+            });
+         }
+         else
+            teclado.disparou(ESPACO, null);
+      }
+      
+      function carregarMusicas() {
+         musicaAcao = new Audio();
+         musicaAcao.src = 'snd/musica-acao.mp3';
+         musicaAcao.volume = 0.8;
+         musicaAcao.loop = true;
+         musicaAcao.load();
+      }
+      
+      function iniciarJogo() {
+         // Só inicia a partir do menu (e não durante o carregamento)
+         if (! menu.ativo || menu.modo == 'carregando') return;
+         
+         menu.fechar();
+         
+         // Nova partida: pontuação volta a zero
+         painel.pontuacao = 0;
+         
+         criadorInimigos.ultimoOvni = new Date().getTime();
+      
+         // Tiro
+         ativarTiro(true);
+         
+         // Pausa
+         teclado.disparou(ENTER, pausarJogo);
+         
+         musicaAcao.play();
+         animacao.ligar();
+      }
+      
+      function gameOver() {
+         // Tiro
+         ativarTiro(false);
+         
+         // Parar a música e rebobinar
+         musicaAcao.pause();
+         musicaAcao.currentTime = 0.0;
+         
+         // Tela de Game Over (ENTER ou clique jogam novamente)
+         menu.pontuacao = painel.pontuacao;
+         menu.abrir('gameover');
+         teclado.disparou(ENTER, iniciarJogo);
+         
+         // Restaurar as condições da nave
+         nave.vidasExtras = 3;
+         nave.posicionar();
+         animacao.novoSprite(nave);
+         colisor.novoSprite(nave);
+         
+         // Tirar todos os inimigos da tela
+         removerInimigos();
+      }
+      
+      function removerInimigos() {
+         for (var i in animacao.sprites) {
+            if (animacao.sprites[i] instanceof Ovni)
+               animacao.excluirSprite(animacao.sprites[i]);
+         }
+      }
+   </script>
 </body>
+
 </html>
