@@ -1,4 +1,9 @@
 // Códigos de teclas - aqui vão todos os que forem necessários
+var TECLA_W = 87;
+var TECLA_A = 65;
+var TECLA_S = 83;
+var TECLA_D = 68;
+
 var SETA_ESQUERDA = 37;
 var SETA_ACIMA = 38;
 var SETA_DIREITA = 39;

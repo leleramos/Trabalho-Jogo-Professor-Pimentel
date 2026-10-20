@@ -26,26 +26,34 @@ Nave.prototype = {
    atualizar: function() {
       var incremento = 
           this.velocidade * this.animacao.decorrido / 1000;
+
+            var t = this.teclado;
+     
+            if ((t.pressionada(SETA_ESQUERDA) || t.pressionada(TECLA_A)) 
+         && this.x > 0)
+      this.x -= incremento;
+
+     if ((t.pressionada(SETA_DIREITA) || t.pressionada(TECLA_D)) && 
+         this.x < this.context.canvas.width - this.largura)
+      this.x += incremento;
       
-      if (this.teclado.pressionada(SETA_ESQUERDA) && this.x > 0)
-         this.x -= incremento;
+            
+   if ((t.pressionada(SETA_ACIMA) || t.pressionada(TECLA_W)) 
+         && this.y > 0)
+      this.y -= incremento;
          
-      if (this.teclado.pressionada(SETA_DIREITA) && 
-               this.x < this.context.canvas.width - this.largura)
-         this.x += incremento;
-         
-      if (this.teclado.pressionada(SETA_ACIMA) && this.y > 0)
-         this.y -= incremento;
-         
-      if (this.teclado.pressionada(SETA_ABAIXO) &&
+      if ((t.pressionada(SETA_ABAIXO) || t.pressionada(TECLA_S)) &&
                this.y < this.context.canvas.height - this.altura)
          this.y += incremento;
    },
    desenhar: function() {
       // Quadro alvo: inclina ao virar, volta ao centro ao soltar
       var alvo = 2;
-      if (this.teclado.pressionada(SETA_ESQUERDA)) alvo = QUADRO_ESQUERDA;
-      else if (this.teclado.pressionada(SETA_DIREITA)) alvo = QUADRO_DIREITA;
+      var t = this.teclado;
+      if (t.pressionada(SETA_ESQUERDA) || t.pressionada(TECLA_A)) 
+      alvo = QUADRO_ESQUERDA;
+      else if (t.pressionada(SETA_DIREITA) || t.pressionada(TECLA_D)) 
+      alvo = QUADRO_DIREITA;
       
       // Passa um quadro de cada vez (inclinação suave)
       var agora = new Date().getTime();
