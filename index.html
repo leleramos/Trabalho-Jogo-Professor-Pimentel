@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+   <meta charset="utf-8">
+   <title>Vanguarda Estelar</title>
+   <link rel="stylesheet" href="css/estilo.css">
+   <script src="js/animacao.js"></script>
+   <script src="js/teclado.js"></script>
+   <script src="js/colisor.js"></script>
+   <script src="js/fundo.js"></script>
+   <script src="js/nave.js"></script>
+   <script src="js/ovni.js"></script>
+   <script src="js/tiro.js"></script>
+   <script src="js/spritesheet.js"></script>
+   <script src="js/explosao.js"></script>
+   <script src="js/painel.js"></script>
+   <script src="js/estado.js"></script>
+   <script src="js/interface.js"></script>
+</head>
+
+<body>
+   <canvas id="canvas_animacao"></canvas>
+
+   <!-- HUD -->
+   <div id="hud">
+      <div><small>PONTOS</small><span id="hud-pontos">0</span></div>
+      <div><small>FASE</small><span id="hud-fase">1</span></div>
+      <div><small>VIDAS</small><span id="hud-vidas"></span></div>
+   </div>
+
+   <!-- MENU (inclui carregamento) -->
+   <div id="tela-menu" class="tela">
+      <h1 class="titulo">VANGUARDA<br>ESTELAR</h1>
+      <div id="bloco-carregando">
+         <div class="rotulo">CARREGANDO <span id="carregando-pct">0%</span></div>
+         <div id="barra"><div id="barra-preenchida"></div></div>
+      </div>
+      <button id="btn-jogar" class="botao oculto" data-acao="jogar">JOGAR</button>
+      <div class="comandos">SETAS/WASD MOVER &nbsp;·&nbsp; ESPAÇO ATIRAR &nbsp;·&nbsp; ENTER OU P PAUSAR</div>
+   </div>
+
+   <!-- PAUSA -->
+   <div id="tela-pausa" class="tela">
+      <h1 class="titulo">PAUSADO</h1>
+      <button class="botao" data-acao="retomar">CONTINUAR</button>
+      <button class="botao secundario" data-acao="reiniciar">REINICIAR</button>
+      <button class="botao secundario" data-acao="menu">MENU</button>
+   </div>
+
+   <!-- GAME OVER -->
+   <div id="tela-gameover" class="tela">
+      <h1 class="titulo perigo">GAME OVER</h1>
+      <div class="rotulo">PONTUAÇÃO</div>
+      <div class="numero" id="pontuacao-final">0</div>
+      <button class="botao" data-acao="jogar">JOGAR NOVAMENTE</button>
+      <button class="botao secundario" data-acao="menu">MENU</button>
+   </div>
+
+   <button id="btn-som" data-acao="som">SOM: LIGADO</button>
+
+   <script>
+      var canvas = document.getElementById('canvas_animacao');
+      var context = canvas.getContext('2d');
+      
+      function ajustarCanvas() {
+         canvas.width = window.innerWidth;
+         canvas.height = window.innerHeight;
+         context.imageSmoothingEnabled = false;
+         if (typeof nave !== 'undefined' && nave) {
+            nave.x = Math.min(nave.x, canvas.width - nave.largura);
+            nave.y = Math.min(nave.y, canvas.height - nave.altura);
+         }
+      }
+      ajustarCanvas();
+      window.addEventListener('resize', ajustarCanvas);
+      
+      var imagens, animacao, teclado, colisor, nave, painel, criadorInimigos;
+      var camadasFundo = [];
+      var totalImagens = 0, carregadas = 0, carregado = false;
+      var musicaAcao, somLigado = true;
+      var TECLA_P = 80, TECLA_ESC = 27;
+      
+      // Cenários: '07_black_hole', '01_deep_blue_void', '04_toxic_green'
+      var CENARIO = '07_black_hole';
+      var ESCALA_FUNDO = Math.max(2, Math.round(window.innerHeight / 360));
+      
+      // ===== Interface + Máquina de estados =====
+      Interface.iniciar();
+      var estado = new MaquinaEstados();
+      configurarEstados();
+      estado.mudar(Estado.MENU);
+      
+      Interface.aoAcao = function(acao) {
+         if (acao == 'jogar')    estado.mudar(Estado.JOGANDO);
+         if (acao == 'retomar')  estado.mudar(Estado.JOGANDO);
+         if (acao == 'reiniciar') estado.mudar(Estado.JOGANDO, {reiniciar: true});
+         if (acao == 'menu')     estado.mudar(Estado.MENU);
+         if (acao == 'som')      alternarSom();
+      };
+      
+      // Pausa sozinho se a aba perder o foco
+      document.addEventListener('visibilitychange', function() {
+         if (document.hidden && estado.esta(Estado.JOGANDO))
+            estado.mudar(Estado.PAUSADO);
+      });
+      
+      function configurarEstados() {
+         estado.permitir(Estado.MENU,     [Estado.JOGANDO]);
+         estado.permitir(Estado.JOGANDO,  [Estado.PAUSADO, Estado.GAMEOVER]);
+         estado.permitir(Estado.PAUSADO,  [Estado.JOGANDO, Estado.MENU]);
+         estado.permitir(Estado.GAMEOVER, [Estado.JOGANDO, Estado.MENU]);
+         
+         estado.aoEntrar[Estado.MENU] = function() {
+            if (carregado) { animacao.desligar(); prepararPartida(); }
+            pararMusica();
+            Interface.mostrarTela(Estado.MENU);
+            iniciarFundo();
+         };
+         
+         estado.aoEntrar[Estado.JOGANDO] = function(anterior, dados) {
+            // Menu, Game Over ou "Reiniciar" = partida nova; Pausa = retomar
+            if (anterior != Estado.PAUSADO || (dados && dados.reiniciar)) {
+               prepararPartida();
+               musicaAcao.currentTime = 0;
+            }
+            pararFundo();
+            Interface.mostrarTela(Estado.JOGANDO);
+            criadorInimigos.ultimoOvni = new Date().getTime();
+            ativarTiro(true);
+            if (somLigado) tocar(musicaAcao);
+            animacao.ligar();
+         };
+         
+         estado.aoEntrar[Estado.PAUSADO] = function() {
+            animacao.desligar();
+            ativarTiro(false);
+            musicaAcao.pause();
+            Interface.mostrarTela(Estado.PAUSADO);
+         };
+         
+         estado.aoEntrar[Estado.GAMEOVER] = function() {
+            animacao.desligar();
+            ativarTiro(false);
+            pararMusica();
+            Interface.pontuacaoFinal(painel.pontuacao);
+            prepararPartida();    // limpa a tela; nave pronta p/ nova partida
+            Interface.mostrarTela(Estado.GAMEOVER);
+            iniciarFundo();
+         };
+      }
+      
+      // Deixa tudo pronto para uma partida nova
+      function prepararPartida() {
+         // Mantém só fundo, painel e nave (inimigos, tiros, explosões
+         // e o futuro boss saem da tela)
+         function manter(s) {
+            return s === nave || s === painel || s instanceof Fundo;
+         }
+         animacao.sprites = animacao.sprites.filter(manter);
+         colisor.sprites = colisor.sprites.filter(function(s) {
+            return s === nave;
+         });
+         animacao.spritesExcluir = [];
+         colisor.spritesExcluir = [];
+         
+         if (animacao.sprites.indexOf(nave) < 0) animacao.novoSprite(nave);
+         if (colisor.sprites.indexOf(nave) < 0) colisor.novoSprite(nave);
+         
+         nave.vidasExtras = 3;
+         nave.quadro = 2;
+         nave.posicionar();
+         painel.pontuacao = 0;
+         painel.fase = 1;
+      }
+      
+      // ===== Fundo animado enquanto há menu/game over =====
+      var idFundo = null, ultimoFundo = 0;
+      function iniciarFundo() {
+         pararFundo();
+         ultimoFundo = 0;
+         idFundo = requestAnimationFrame(quadroFundo);
+      }
+      function pararFundo() {
+         if (idFundo) cancelAnimationFrame(idFundo);
+         idFundo = null;
+      }
+      function quadroFundo(agora) {
+         var dt = ultimoFundo ? Math.min(agora - ultimoFundo, 100) : 16;
+         ultimoFundo = agora;
+         
+         context.fillStyle = '#000';
+         context.fillRect(0, 0, canvas.width, canvas.height);
+         if (carregado) {
+            animacao.decorrido = dt;
+            for (var i in camadasFundo) {
+               camadasFundo[i].atualizar();
+               camadasFundo[i].desenhar();
+            }
+         }
+         idFundo = requestAnimationFrame(quadroFundo);
+      }
+      
+      // ===== Teclas =====
+      function teclaEnter() {
+         if (estado.esta(Estado.JOGANDO)) estado.mudar(Estado.PAUSADO);
+         else estado.mudar(Estado.JOGANDO);   // menu, pausa ou game over
+      }
+      function teclaPausa() {
+         if (estado.esta(Estado.JOGANDO)) estado.mudar(Estado.PAUSADO);
+         else if (estado.esta(Estado.PAUSADO)) estado.mudar(Estado.JOGANDO);
+      }
+      function ativarTiro(ativar) {
+         teclado.disparou(ESPACO, ativar ? function() { nave.atirar(); } : null);
+      }
+      
+      // ===== Sons =====
+      function tocar(audio) {
+         var p = audio.play();
+         if (p && p.catch) p.catch(function() {});
+      }
+      function pararMusica() {
+         if (! musicaAcao) return;
+         musicaAcao.pause();
+         musicaAcao.currentTime = 0.0;
+      }
+      function alternarSom() {
+         somLigado = ! somLigado;
+         musicaAcao.muted = ! somLigado;
+         SOM_TIRO.muted = ! somLigado;
+         SOM_EXPLOSAO.muted = ! somLigado;
+         Interface.rotuloSom(somLigado);
+      }
+      function carregarMusicas() {
+         musicaAcao = new Audio();
+         musicaAcao.src = 'snd/musica-acao.mp3';
+         musicaAcao.volume = 0.8;
+         musicaAcao.loop = true;
+         musicaAcao.load();
+      }
+      
+      // ===== Carregamento =====
+      carregarImagens();
+      carregarMusicas();
+      
+      function carregarImagens() {
+         imagens = {
+            espaco:     'fundos/' + CENARIO + '/layer1_far_stars.png', 
+            nebulosa:   'fundos/' + CENARIO + '/layer2_nebula.png', 
+            poeira:     'fundos/' + CENARIO + '/layer3_dust.png', 
+            celestial:  'fundos/' + CENARIO + '/layer4_celestial.png', 
+            estrelas:   'fundos/' + CENARIO + '/layer5_near_stars.png', 
+            nave:     'nave-pixel.png', 
+            ovni:     'inimigo-pixel.png',
+            explosao: 'explosao-pixel.png',
+            tiro:     'tiro-pixel.png'
+         };
+         for (var i in imagens) {
+            var img = new Image();
+            img.src = 'img/' + imagens[i];
+            img.onload = carregando;
+            totalImagens++;
+            imagens[i] = img;
+         }
+      }
+      
+      function carregando() {
+         carregadas++;
+         Interface.progresso(carregadas / totalImagens);
+         
+         if (carregadas == totalImagens) {
+            iniciarObjetos();
+            carregado = true;
+            teclado.disparou(ENTER, teclaEnter);
+            teclado.disparou(TECLA_P, teclaPausa);
+            teclado.disparou(TECLA_ESC, teclaPausa);
+            Interface.liberarJogar();
+         }
+      }
+      
+      function iniciarObjetos() {
+         animacao = new Animacao(context);
+         teclado = new Teclado(document);
+         colisor = new Colisor();
+         espaco = new Fundo(context, imagens.espaco, ESCALA_FUNDO);
+         nebulosa = new Fundo(context, imagens.nebulosa, ESCALA_FUNDO);
+         poeira = new Fundo(context, imagens.poeira, ESCALA_FUNDO);
+         celestial = new Fundo(context, imagens.celestial, ESCALA_FUNDO);
+         estrelas = new Fundo(context, imagens.estrelas, ESCALA_FUNDO);
+         nave = new Nave(context, teclado, imagens.nave, 
+                         imagens.explosao, imagens.tiro);
+         painel = new Painel(context, nave);
+         
+         camadasFundo = [espaco, nebulosa, poeira, celestial, estrelas];
+         for (var i in camadasFundo) animacao.novoSprite(camadasFundo[i]);
+         animacao.novoSprite(painel);
+         animacao.novoSprite(nave);
+         
+         colisor.novoSprite(nave);
+         animacao.novoProcessamento(colisor);
+         
+         configuracoesIniciais();
+      }
+      
+      function configuracoesIniciais() {
+         espaco.velocidade = 10;
+         nebulosa.velocidade = 30;
+         poeira.velocidade = 60;
+         celestial.velocidade = 90;
+         estrelas.velocidade = 160;
+         
+         nave.posicionar();
+         nave.velocidade = 400;
+         
+         criacaoInimigos();
+         
+         // Game Over agora é uma transição da máquina de estados
+         nave.acabaramVidas = function() {
+            estado.mudar(Estado.GAMEOVER);
+         }
+         
+         colisor.aoColidir = function(o1, o2) {
+            if ( (o1 instanceof Tiro && o2 instanceof Ovni) ||
+                 (o1 instanceof Ovni && o2 instanceof Tiro) )
+               painel.pontuacao += 10;
+         }
+      }
+      
+      function criacaoInimigos() {
+         criadorInimigos = {
+            ultimoOvni: new Date().getTime(),
+            processar: function() {
+               var agora = new Date().getTime();
+               // Intervalo entre naves (ms): menor = mais naves
+               if (agora - this.ultimoOvni > 500) {
+                  novoOvni();
+                  this.ultimoOvni = agora;
+               }
+            }
+         };
+         animacao.novoProcessamento(criadorInimigos);
+      }
+      
+      function novoOvni() {
+         var ovni = new Ovni(context, imagens.ovni, imagens.explosao);
+         // Velocidade entre 500 e 1000 px/s
+         ovni.velocidade = Math.floor( 500 + Math.random() * (1000 - 500 + 1) );
+          // Média de dois sorteios: as naves nascem mais perto do meio
+         // (para sortear em toda a largura de forma uniforme, use um
+         // único Math.random() no lugar da média)
+         var sorteio = (Math.random() + Math.random()) / 2;
+         ovni.x = Math.floor(sorteio * (canvas.width - ovni.largura + 1) );
+         ovni.y = -ovni.altura;
+         animacao.novoSprite(ovni);
+         colisor.novoSprite(ovni);
+      }
+   </script>
+</body>
+</html>

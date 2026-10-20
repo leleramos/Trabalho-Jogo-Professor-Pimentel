@@ -1,31 +1,17 @@
+// O painel continua sendo um sprite (assim a pontuação e a fase ficam
+// aqui, onde o resto do jogo já as usa), mas quem DESENHA o HUD agora
+// é a Interface, em DOM.
 function Painel(context, nave) {
    this.context = context;
    this.nave = nave;
-   // Ícone de vidas: quadro central (reto) da nave, sem ampliar
-   this.spritesheet = new Spritesheet(context, nave.imagem, 1, 5);
-   this.spritesheet.coluna = 2;
    this.pontuacao = 0;
+   this.fase = 1;   // a Pessoa 1 incrementa ao derrotar o boss
 }
 Painel.prototype = {
    atualizar: function() {
       
    },
    desenhar: function() {
-      var x = 10;
-      var y = 10;
-      
-      // Uma mini-nave para cada vida extra
-      for (var i = 1; i <= this.nave.vidasExtras; i++) {
-         this.spritesheet.desenhar(x, y);
-         x += 32;
-      }
-      
-      // Pontuação
-      var ctx = this.context;
-      ctx.save();
-      ctx.fillStyle = 'white';
-      ctx.font = 'bold 18px monospace';
-      ctx.fillText(this.pontuacao, 110, 28);
-      ctx.restore();   
+      Interface.atualizarHUD(this.pontuacao, this.nave.vidasExtras, this.fase);
    }
 }
