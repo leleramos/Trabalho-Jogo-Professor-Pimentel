@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+   <meta charset="utf-8">
+   <title>Vanguarda Estelar</title>
+   <link rel="stylesheet" href="css/estilo.css">
+   <script src="js/animacao.js"></script>
+   <script src="js/teclado.js"></script>
+   <script src="js/colisor.js"></script>
+   <script src="js/fundo.js"></script>
+   <script src="js/nave.js"></script>
+   <script src="js/ovni.js"></script>
+   <script src="js/tiro.js"></script>
+   <script src="js/spritesheet.js"></script>
+   <script src="js/explosao.js"></script>
+   <script src="js/fases.js"></script>
+   <script src="js/tiroinimigo.js"></script>
+   <script src="js/boss.js"></script>
+   <script src="js/aviso.js"></script>
+   <script src="js/gerenciador.js"></script>
+   <script src="js/painel.js"></script>
+   <script src="js/estado.js"></script>
+   <script src="js/interface.js"></script>
+   <script src="js/jogo.js"></script>
+   <script src="js/audio.js"></script>
+</head>
+
+<body>
+   <canvas id="canvas_animacao"></canvas>
+
+   <!-- HUD -->
+   <div id="hud">
+      <div><small>PONTOS</small><span id="hud-pontos">0</span></div>
+      <div><small>FASE</small><span id="hud-fase">1</span></div>
+      <div><small>VIDAS</small><span id="hud-vidas"></span></div>
+   </div>
+
+   <!-- MENU (inclui carregamento) -->
+   <div id="tela-menu" class="tela">
+      <h1 class="titulo">VANGUARDA<br>ESTELAR</h1>
+      <div id="bloco-carregando">
+         <div class="rotulo">CARREGANDO <span id="carregando-pct">0%</span></div>
+         <div id="barra"><div id="barra-preenchida"></div></div>
+      </div>
+      <button id="btn-jogar" class="botao oculto" data-acao="jogar">JOGAR</button>
+      <div class="comandos">SETAS/WASD MOVER &nbsp;·&nbsp; ESPAÇO ATIRAR &nbsp;·&nbsp; ENTER OU P PAUSAR</div>
+   </div>
+
+   <!-- PAUSA -->
+   <div id="tela-pausa" class="tela">
+      <h1 class="titulo">PAUSADO</h1>
+      <button class="botao" data-acao="retomar">CONTINUAR</button>
+      <button class="botao secundario" data-acao="reiniciar">REINICIAR</button>
+      <button class="botao secundario" data-acao="menu">MENU</button>
+   </div>
+
+   <!-- GAME OVER -->
+   <div id="tela-gameover" class="tela">
+      <h1 class="titulo perigo">GAME OVER</h1>
+      <div class="rotulo">PONTUAÇÃO</div>
+      <div class="numero" id="pontuacao-final">0</div>
+      <div class="rotulo">RECORDE</div>
+      <div class="numero" id="recorde-final">0</div>
+      <button class="botao" data-acao="jogar">JOGAR NOVAMENTE</button>
+      <button class="botao secundario" data-acao="menu">MENU</button>
+   </div>
+
+   <!-- VITÓRIA -->
+   <div id="tela-vitoria" class="tela">
+      <h1 class="titulo">VITÓRIA</h1>
+      <div class="rotulo">VOCÊ COMPLETOU O JOGO</div>
+      <div class="rotulo">PONTUAÇÃO FINAL</div>
+      <div class="numero" id="vitoria-pontuacao">0</div>
+      <div class="rotulo">RECORDE</div>
+      <div class="numero" id="vitoria-recorde">0</div>
+      <button class="botao" data-acao="jogar">JOGAR NOVAMENTE</button>
+      <button class="botao secundario" data-acao="menu">MENU</button>
+   </div>
+
+   <button id="btn-som" data-acao="som">SOM: LIGADO</button>
+
+   <script>
+      var canvas = document.getElementById('canvas_animacao');
+      var context = canvas.getContext('2d');
+
+      function ajustarCanvas() {
+         canvas.width = window.innerWidth;
+         canvas.height = window.innerHeight;
+         context.imageSmoothingEnabled = false;
+         if (typeof nave !== 'undefined' && nave) {
+            nave.x = Math.min(nave.x, canvas.width - nave.largura);
+            nave.y = Math.min(nave.y, canvas.height - nave.altura);
+         }
+      }
+      ajustarCanvas();
+      window.addEventListener('resize', ajustarCanvas);
+
+      // ESCALA_FUNDO depende do tamanho da tela
+      var ESCALA_FUNDO = Math.max(2, Math.round(window.innerHeight / 360));
+
+      carregarMusicas();
+      carregarImagens();
+      iniciarJogo();
+   </script>
+</body>
+</html>
