@@ -1,0 +1,88 @@
+html, body { margin: 0; padding: 0; overflow: hidden; background: #000; }
+canvas { display: block; }
+
+:root {
+   --azul: #5ec8ff;
+   --azul-forte: #2bb4ff;
+   --vermelho: #ff4d5e;
+   --texto: #ffffff;
+   --suave: #9fb4d0;
+   --fonte: "Courier New", monospace;
+}
+
+/* ===== Overlays ===== */
+.tela {
+   display: none;
+   position: fixed; inset: 0;
+   flex-direction: column; align-items: center; justify-content: center;
+   gap: 2vh; text-align: center;
+   font-family: var(--fonte); font-weight: bold; color: var(--texto);
+   background: rgba(0, 0, 12, 0.55);
+   z-index: 10;
+}
+.tela.visivel { display: flex; animation: aparecer 0.5s ease; }
+@keyframes aparecer { from { opacity: 0; } to { opacity: 1; } }
+
+h1.titulo {
+   margin: 0; line-height: 1.05; letter-spacing: 0.08em;
+   font-size: clamp(32px, 9vw, 100px);
+   background: linear-gradient(#fff, var(--azul));
+   -webkit-background-clip: text; background-clip: text; color: transparent;
+   filter: drop-shadow(0 0 18px var(--azul-forte));
+}
+h1.titulo.perigo {
+   background: linear-gradient(#ffe1e1, var(--vermelho));
+   -webkit-background-clip: text; background-clip: text;
+   filter: drop-shadow(0 0 18px #ff2d45);
+}
+.rotulo { color: var(--suave); letter-spacing: 0.3em; font-size: clamp(12px, 2vw, 18px); }
+.numero { font-size: clamp(36px, 8vw, 80px); }
+.comandos { position: absolute; bottom: 4vh; color: #7d93b3;
+            font-size: clamp(11px, 1.3vw, 15px); letter-spacing: 0.15em; }
+
+/* ===== Botões ===== */
+.botao {
+   font: inherit; font-size: clamp(16px, 2.4vw, 24px);
+   color: #fff; letter-spacing: 0.15em;
+   background: rgba(10, 30, 70, 0.7);
+   border: 2px solid var(--azul); border-radius: 8px;
+   padding: 0.7em 1.8em; min-width: 11em; cursor: pointer;
+   box-shadow: 0 0 12px rgba(43, 180, 255, 0.4);
+   transition: transform 0.12s, background 0.12s, box-shadow 0.12s;
+}
+.botao:hover, .botao:focus-visible {
+   background: rgba(43, 123, 255, 0.55);
+   box-shadow: 0 0 24px var(--azul-forte);
+   transform: scale(1.05); outline: none;
+}
+.botao.secundario { border-color: #5c6f8f; box-shadow: none; font-size: clamp(13px, 1.8vw, 18px); }
+.oculto { display: none !important; }
+
+/* ===== Barra de carregamento ===== */
+#barra { width: min(440px, 70vw); height: 16px; margin-top: 1vh;
+         border: 2px solid var(--azul); border-radius: 8px; padding: 3px;
+         background: rgba(10, 20, 50, 0.6); }
+#barra-preenchida { height: 100%; width: 0; border-radius: 4px;
+                    background: linear-gradient(90deg, #2b7bff, #5ee0ff);
+                    transition: width 0.15s; }
+
+/* ===== HUD ===== */
+#hud {
+   display: none; position: fixed; top: 0; left: 0; right: 0;
+   justify-content: space-between; padding: 10px 20px;
+   font-family: var(--fonte); font-weight: bold; color: #fff;
+   font-size: clamp(14px, 2vw, 22px); letter-spacing: 0.1em;
+   text-shadow: 0 0 6px #000; pointer-events: none; z-index: 5;
+}
+#hud.visivel { display: flex; }
+#hud small { display: block; color: var(--suave); font-size: 0.6em; letter-spacing: 0.3em; }
+#hud-vidas { color: var(--vermelho); }
+
+/* ===== Botão de som (sempre visível) ===== */
+#btn-som {
+   position: fixed; bottom: 10px; right: 10px; z-index: 20;
+   font-family: var(--fonte); font-weight: bold; font-size: 12px;
+   color: var(--suave); background: rgba(0, 0, 20, 0.6);
+   border: 1px solid #5c6f8f; border-radius: 6px; padding: 6px 10px; cursor: pointer;
+}
+#btn-som:hover { color: #fff; border-color: var(--azul); }
